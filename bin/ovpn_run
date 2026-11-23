@@ -39,12 +39,12 @@ function addArg {
 # this allows rules/routing to be altered by supplying this function
 # in an included file, such as ovpn_env.sh
 function setupIptablesAndRouting {
-    iptables -t nat -C POSTROUTING -s $OVPN_SERVER -o $OVPN_NATDEVICE -j MASQUERADE 2>/dev/null || {
-      iptables -t nat -A POSTROUTING -s $OVPN_SERVER -o $OVPN_NATDEVICE -j MASQUERADE
+    $IPTABLES -t nat -C POSTROUTING -s $OVPN_SERVER -o $OVPN_NATDEVICE -j MASQUERADE 2>/dev/null || {
+      $IPTABLES -t nat -A POSTROUTING -s $OVPN_SERVER -o $OVPN_NATDEVICE -j MASQUERADE
     }
     for i in "${OVPN_ROUTES[@]}"; do
-        iptables -t nat -C POSTROUTING -s "$i" -o $OVPN_NATDEVICE -j MASQUERADE 2>/dev/null || {
-          iptables -t nat -A POSTROUTING -s "$i" -o $OVPN_NATDEVICE -j MASQUERADE
+        $IPTABLES -t nat -C POSTROUTING -s "$i" -o $OVPN_NATDEVICE -j MASQUERADE 2>/dev/null || {
+          $IPTABLES -t nat -A POSTROUTING -s "$i" -o $OVPN_NATDEVICE -j MASQUERADE
         }
     done
 }
@@ -53,6 +53,16 @@ function setupIptablesAndRouting {
 addArg "--config" "$OPENVPN/openvpn.conf"
 
 source "$OPENVPN/ovpn_env.sh"
+
+# Prefer iptables-legacy when present (Synology / kernels without nf_tables).
+# Override with IPTABLES=... (compose env or ovpn_env.sh) if needed.
+if [ -z "$IPTABLES" ]; then
+    if command -v iptables-legacy >/dev/null 2>&1; then
+        IPTABLES=iptables-legacy
+    else
+        IPTABLES=iptables
+    fi
+fi
 
 mkdir -p /dev/net
 if [ ! -c /dev/net/tun ]; then
